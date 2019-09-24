@@ -56,49 +56,51 @@ class TwoStepAgent(OneStepAgent):
 
 
 class NStepAgent(OneStepAgent):
-	def minmax(self, depth, g):
-		if depth == 2:
-			return None
+	def minmax(self, depth, g, alpha=-9999, beta=9999, is_your_turn=True):
+		if depth == 0:
+			return 0, None
 
-		if depth % 2 == 0:
-			c = self.best_choice(g.player)
-			if c is not None:
-				return c
+		if len(g.records) > 0:
+			last_move = g.records[-1][1]
+			if g.is_winner(last_move, g.player % 2 + 1):
+				if not is_your_turn:
+					return 100, None
+				else:
+					return -100, None
 
-			choices = g.get_choices()
-			for c in choices:
-				g.move(c, g.player)
-				g.next_player()
-				cc = self.minmax(depth + 1, g)
-				if cc is not None:
-					g.moveback()
-					g.next_player()
-					return cc
-				g.moveback()
-				g.next_player()
-		else:
-			c = self.best_choice(g.player)
-			if c is not None:
-				return None
+		choices = g.get_choices()
+		random.shuffle(choices)
+		best_choice = None
+		best_val = -9999
+		if not is_your_turn:
+			best_val = -best_val
 
-			choices = g.get_choices()
-			for c in choices:
-				g.move(c, g.player)
-				g.next_player()
-				cc = self.minmax(depth + 1, g)
-				if cc is not None:
-					g.moveback()
-					g.next_player()
-					return cc
-				g.moveback()
-				g.next_player()
+		for c in choices:
+			g.move(c, g.player)
+			g.next_player()
+			val, choice = self.minmax(depth - 1, g, alpha, beta, not is_your_turn)
+			g.moveback()
+			g.next_player()
 
-		return None
+			if is_your_turn:
+				if val > best_val:
+					best_val = val
+					best_choice = c
+					alpha = val
+					if beta <= alpha:
+						break
+			else:
+				if val < best_val:
+					best_val = val
+					best_choice = c
+					beta = val
+					if beta <= alpha:
+						break
+
+		return best_val, best_choice
 		
 	def get_choice(self):
-		c = self.minmax(0, copy.deepcopy(self.game))
+		v, c = self.minmax(10, copy.deepcopy(self.game))
 		if c is not None:
 			return c
 		return random.choice(self.game.get_choices())
-
-

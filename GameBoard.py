@@ -8,7 +8,7 @@ class GameBoard(object):
 		self.rows = 6
 		self.cols = 7
 		self.chess_style = [" ", "○", "●"]
-		self.last_chess_style = [" ", "◎", "◉"]
+		self.last_chess_style = [" ", "①", "❷"]
 		self.board = list()
 		for i in range(self.rows):
 			row_list = list()			
