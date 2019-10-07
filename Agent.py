@@ -108,7 +108,15 @@ class NStepAgent(OneStepAgent):
 	def get_choice(self):
 		v, c = self.minmax(self.max_depth, copy.deepcopy(self.game))
 		if c is not None:
+			if v == 0:
+				print("Min-Max-Tree(12):", "Nothing")
+			elif v > 0:
+				print("Min-Max-Tree(12):", "I WIN!")
+			else:
+				print("Min-Max-Tree(12):", "Surrender...Human try...")
+				return self.game.get_user_input()
 			return c
+		print("random choice...")
 		return random.choice(self.game.get_choices())
 
 
@@ -127,10 +135,19 @@ class Action(object):
 				return na
 		return None
 
-	def get_UCT(self):
+	def remove_next_action(self, choice):
+		for na in self.next_actions:
+			if na.choice == choice:
+				self.next_actions.remove(na)
+				break
+
+	def get_UCT(self, choices):
 		dict = {}
 		t = self.simulations
 		for a in self.next_actions:
+			if a.choice not in choices:
+				continue
+
 			w = a.winners
 			n = a.simulations
 			if n > 0:
@@ -153,14 +170,15 @@ class Action(object):
 
 class UCTAgent(RandomAgent):
 
-	def __init__(self, name, player, game):
+	def __init__(self, name, player, game, round=1000):
 		super(UCTAgent, self).__init__(name, player, game)
 		self.current_action = Action(0)
-		self.agent = NStepAgent(name, player, game)
+		self.round = round
+		self.agent = NStepAgent(name, (player + 1) % 2 + 1, game)
 
-	def random_walk(self, depth=0):
+	def random_walk(self, g, depth=0):
 		player = (self.player + depth + 1) % 2 + 1
-		choices = self.game.get_choices()
+		choices = g.get_choices()
 		if len(choices) == 0:
 			return 0
 
@@ -169,35 +187,59 @@ class UCTAgent(RandomAgent):
 		self.current_action.simulations += 1
 		self.current_action = self.current_action.get_next_action(c)
 
-		self.game.move(c, player)
-		self.game.next_player()
+		g.move(c, player)
+		g.next_player()
 		# self.game.print_board()
 
 		result = 0
-		if self.game.is_winner(c, player):
-			self.game.moveback()
-			self.game.next_player()
+		if g.is_winner(c, player):
+			g.moveback()
+			g.next_player()
 			if player == self.player:
 				result = 1
 		else:
-			result = self.random_walk(depth + 1)
-			self.game.moveback()
-			self.game.next_player()
+			result = self.random_walk(g, depth + 1)
+			g.moveback()
+			g.next_player()
 
 		self.current_action = self.current_action.previous_action
 		self.current_action.winners += result
 		return result
 
 	def get_choice(self):
-		# v, c = self.agent.minmax(3, copy.deepcopy(self.game))
-		# if c is not None:
-		# 	self.current_action.make_action(c)
-		# 	self.current_action = self.current_action.get_next_action(c)
-		# 	return c
+		v, c = self.agent.minmax(6, copy.deepcopy(self.game))
+		if v != 0:
+			print("Min-Max-Tree:", v)
+			self.current_action.make_action(c)
+			self.current_action = self.current_action.get_next_action(c)
+			return c
 
-		for i in range(1000):
-			self.random_walk()
-		uct = self.current_action.get_UCT()
-		choice = max(uct, key=uct.get)
+		for i in range(self.round):
+			self.random_walk(copy.deepcopy(self.game))
+
+		while True:
+			uct = self.current_action.get_UCT(self.game.get_choices())
+			if len(uct) == 0:
+				return random.choice(self.game.get_choices())
+			choice = max(uct, key=uct.get)
+
+			g = copy.deepcopy(self.game)
+			g.move(choice, self.player)
+			g.next_player()
+			v, c = self.agent.minmax(6, g)
+			if v > 0:
+				print("Min-Max-Tree(6):", "...finding others...")
+				self.current_action.remove_next_action(choice)
+				if len(self.current_action.next_actions) == 0:
+					return random.choice(self.game.get_choices())
+			elif v < 0:
+				print("Min-Max-Tree(6):", "I WIN!")
+				self.current_action.make_action(choice)
+				self.current_action = self.current_action.get_next_action(choice)
+				return c
+			else:
+				break
+
+		print("MCTS: %.2f" % uct[choice])
 		self.current_action = self.current_action.get_next_action(choice)
 		return choice

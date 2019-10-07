@@ -8,20 +8,23 @@ import time
 if __name__ == "__main__":
 	p1 = 0
 	p2 = 0
-	is_print = False
-	for i in range(100):
+	is_print = True
+	for i in range(1):
 		g = GameBoard()
 		if is_print:
 			g.print_board()
 
-		players = [UCTAgent("COM1", 1, g), NStepAgent("COM2", 2, g, 10)]
+		players = [NStepAgent("COM1", 1, g, 12), UCTAgent("COM2", 2, g, 15000)]
 		
 		while len(g.get_choices()) > 0:
 			p = players[g.player - 1]
+			bt = time.time()
 			c = p.get_choice()
 			g.move(c, g.player)
 			if is_print:
+				print("Spend time: %.2fs" % (time.time() - bt))
 				g.print_board()
+				print()
 			if g.is_winner(c, g.player):
 				print(p.name + " is WINNER!")
 				if p.player == 1:
